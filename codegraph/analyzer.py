@@ -81,6 +81,23 @@ def run_bandit(file_path: Path) -> Any:
     return data
 
 
+def run_flake8(file_path: Path) -> List[str]:
+    """
+    Run flake8 style analysis on a Python file.
+    Return a list of issue lines.
+    """
+    _, stdout, _ = run_command(
+        [
+            sys.executable,
+            "-m",
+            "flake8",
+            str(file_path),
+        ]
+    )
+
+    return [line.strip() for line in stdout.splitlines() if line.strip()]
+
+
 def analyze_file(file_path: str) -> Dict[str, Any]:
     """
     Analyze one Python file using static analysis tools.
@@ -96,4 +113,5 @@ def analyze_file(file_path: str) -> Dict[str, Any]:
         "file": str(path),
         "pylint": run_pylint(path),
         "bandit": run_bandit(path),
+        "flake8": run_flake8(path),
     }
