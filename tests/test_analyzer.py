@@ -16,6 +16,7 @@ def test_analyze_file_returns_report():
     assert "file" in report
     assert "pylint" in report
     assert "bandit" in report
+    assert "flake8" in report
 
 
 def test_analyze_missing_file():
@@ -29,4 +30,10 @@ def test_bandit_detects_security_issues():
 
     assert isinstance(report["bandit"], list)
     assert len(report["bandit"]) > 0
-    
+
+
+def test_flake8_detects_style_issues():
+    report = analyze_file(str(SAMPLE_FILE))
+
+    assert isinstance(report["flake8"], list)
+    assert len(report["flake8"]) > 0
