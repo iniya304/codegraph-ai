@@ -7,6 +7,7 @@ from pathlib import Path
 from codegraph.analyzer import analyze_file
 from codegraph.ast_parser import parse_file
 from codegraph.diff_parser import run_git_diff, summarize_diff
+from codegraph.evaluation import run_benchmark
 from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
 from codegraph.reviewer import review
@@ -22,6 +23,7 @@ def print_usage():
     print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
     print("  python -m codegraph.main --review <file.py> [--llm]")
     print("  python -m codegraph.main --generate-tests <file.py> [--out path] [--run] [--llm]")
+    print("  python -m codegraph.main --evaluate [benchmark.json]")
 
 
 def main():
@@ -104,6 +106,11 @@ def main():
             print(json.dumps({"source": result["source"], "saved_to": saved}, indent=2))
         else:
             print(result["test_code"])
+        return
+
+    if args[0] == "--evaluate":
+        bench_path = args[1] if len(args) > 1 else "data/benchmark.json"
+        print(json.dumps(run_benchmark(bench_path), indent=2))
         return
 
     file_path = args[0]

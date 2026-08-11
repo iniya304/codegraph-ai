@@ -1,0 +1,6 @@
+[
+  {
+    "file": "samples/insecure_sample.py",
+    "expected_lines": [5]
+  }
+]
