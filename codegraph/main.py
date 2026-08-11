@@ -10,6 +10,7 @@ from codegraph.diff_parser import run_git_diff, summarize_diff
 from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
 from codegraph.reviewer import review
+from codegraph.sandbox import run_tests_in_sandbox
 from codegraph.test_generator import generate_tests, save_tests
 
 
@@ -20,7 +21,7 @@ def print_usage():
     print("  python -m codegraph.main --map <file.py>")
     print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
     print("  python -m codegraph.main --review <file.py> [--llm]")
-    print("  python -m codegraph.main --generate-tests <file.py> [--out path] [--llm]")
+    print("  python -m codegraph.main --generate-tests <file.py> [--out path] [--run] [--llm]")
 
 
 def main():
@@ -85,6 +86,16 @@ def main():
 
         if "error" in result:
             print(json.dumps(result, indent=2))
+            return
+
+        if "--run" in args:
+            execution = run_tests_in_sandbox(result["test_code"])
+            print(
+                json.dumps(
+                    {"source": result["source"], "execution": execution},
+                    indent=2,
+                )
+            )
             return
 
         if "--out" in args:
