@@ -10,6 +10,7 @@ from codegraph.diff_parser import run_git_diff, summarize_diff
 from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
 from codegraph.reviewer import review
+from codegraph.test_generator import generate_tests, save_tests
 
 
 def print_usage():
@@ -19,6 +20,7 @@ def print_usage():
     print("  python -m codegraph.main --map <file.py>")
     print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
     print("  python -m codegraph.main --review <file.py> [--llm]")
+    print("  python -m codegraph.main --generate-tests <file.py> [--out path] [--llm]")
 
 
 def main():
@@ -67,14 +69,30 @@ def main():
             print_usage()
             sys.exit(1)
 
-        file_path = args[1]
-        use_llm = "--llm" in args
-
-        report = analyze_file(file_path)
+        report = analyze_file(args[1])
         issues = normalize_report(report)
-        result = review(issues, use_llm=use_llm)
+        result = review(issues, use_llm="--llm" in args)
 
         print(json.dumps(result, indent=2))
+        return
+
+    if args[0] == "--generate-tests":
+        if len(args) < 2:
+            print_usage()
+            sys.exit(1)
+
+        result = generate_tests(args[1], use_llm="--llm" in args)
+
+        if "error" in result:
+            print(json.dumps(result, indent=2))
+            return
+
+        if "--out" in args:
+            out_path = args[args.index("--out") + 1]
+            saved = save_tests(result["test_code"], out_path)
+            print(json.dumps({"source": result["source"], "saved_to": saved}, indent=2))
+        else:
+            print(result["test_code"])
         return
 
     file_path = args[0]
