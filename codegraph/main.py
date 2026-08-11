@@ -4,6 +4,7 @@ import json
 import sys
 
 from codegraph.analyzer import analyze_file
+from codegraph.ast_parser import parse_file
 from codegraph.diff_parser import run_git_diff, summarize_diff
 from codegraph.normalizer import normalize_report
 
@@ -12,6 +13,7 @@ def print_usage():
     print("Usage:")
     print("  python -m codegraph.main <file.py> [--unified]")
     print("  python -m codegraph.main --diff [ref]")
+    print("  python -m codegraph.main --map <file.py>")
 
 
 def main():
@@ -25,6 +27,15 @@ def main():
         ref = args[1] if len(args) > 1 else "HEAD~1"
         summary = summarize_diff(run_git_diff(ref))
         print(json.dumps(summary, indent=2))
+        return
+
+    if args[0] == "--map":
+        if len(args) < 2:
+            print_usage()
+            sys.exit(1)
+
+        code_map = parse_file(args[1])
+        print(json.dumps(code_map, indent=2))
         return
 
     file_path = args[0]
