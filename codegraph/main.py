@@ -2,10 +2,12 @@
 
 import json
 import sys
+from pathlib import Path
 
 from codegraph.analyzer import analyze_file
 from codegraph.ast_parser import parse_file
 from codegraph.diff_parser import run_git_diff, summarize_diff
+from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
 
 
@@ -14,6 +16,7 @@ def print_usage():
     print("  python -m codegraph.main <file.py> [--unified]")
     print("  python -m codegraph.main --diff [ref]")
     print("  python -m codegraph.main --map <file.py>")
+    print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
 
 
 def main():
@@ -34,8 +37,27 @@ def main():
             print_usage()
             sys.exit(1)
 
-        code_map = parse_file(args[1])
-        print(json.dumps(code_map, indent=2))
+        print(json.dumps(parse_file(args[1]), indent=2))
+        return
+
+    if args[0] == "--impact":
+        if len(args) < 4 or "--changed" not in args:
+            print_usage()
+            sys.exit(1)
+
+        file_path = Path(args[1])
+
+        if not file_path.exists():
+            print(json.dumps({"error": f"File not found: {args[1]}"}, indent=2))
+            return
+
+        changed_arg = args[args.index("--changed") + 1]
+        changed = [c.strip() for c in changed_arg.split(",") if c.strip()]
+
+        source = file_path.read_text(encoding="utf-8")
+        call_graph = build_call_graph(source)
+
+        print(json.dumps(compute_impact(call_graph, changed), indent=2))
         return
 
     file_path = args[0]
