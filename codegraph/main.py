@@ -9,6 +9,7 @@ from codegraph.ast_parser import parse_file
 from codegraph.diff_parser import run_git_diff, summarize_diff
 from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
+from codegraph.reviewer import review
 
 
 def print_usage():
@@ -17,6 +18,7 @@ def print_usage():
     print("  python -m codegraph.main --diff [ref]")
     print("  python -m codegraph.main --map <file.py>")
     print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
+    print("  python -m codegraph.main --review <file.py> [--llm]")
 
 
 def main():
@@ -58,6 +60,21 @@ def main():
         call_graph = build_call_graph(source)
 
         print(json.dumps(compute_impact(call_graph, changed), indent=2))
+        return
+
+    if args[0] == "--review":
+        if len(args) < 2:
+            print_usage()
+            sys.exit(1)
+
+        file_path = args[1]
+        use_llm = "--llm" in args
+
+        report = analyze_file(file_path)
+        issues = normalize_report(report)
+        result = review(issues, use_llm=use_llm)
+
+        print(json.dumps(result, indent=2))
         return
 
     file_path = args[0]
