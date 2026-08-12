@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codegraph-ai"
+version = "1.0.0"
+description = "Repository intelligence engine: static analysis, impact analysis, and code review."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "Your Name"}]
+dependencies = [
+    "pylint",
+    "bandit",
+    "flake8",
+    "pytest",
+    "streamlit",
+]
+
+[project.scripts]
+codegraph = "codegraph.main:main"
+
+[tool.setuptools]
+packages = ["codegraph"]
