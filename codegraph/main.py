@@ -10,6 +10,15 @@ from codegraph.diff_parser import run_git_diff, summarize_diff
 from codegraph.evaluation import run_benchmark
 from codegraph.graph import build_call_graph, compute_impact
 from codegraph.normalizer import normalize_report
+from codegraph.pr_reviewer import review_pull_request
+from codegraph.printer import (
+    print_benchmark,
+    print_code_map,
+    print_impact,
+    print_issues,
+    print_pr_report,
+    print_test_code,
+)
 from codegraph.reviewer import review
 from codegraph.sandbox import run_tests_in_sandbox
 from codegraph.test_generator import generate_tests, save_tests
@@ -24,6 +33,7 @@ def print_usage():
     print("  python -m codegraph.main --review <file.py> [--llm]")
     print("  python -m codegraph.main --generate-tests <file.py> [--out path] [--run] [--llm]")
     print("  python -m codegraph.main --evaluate [benchmark.json]")
+    print("  python -m codegraph.main --pr <github-pr-url>")
 
 
 def main():
@@ -44,7 +54,7 @@ def main():
             print_usage()
             sys.exit(1)
 
-        print(json.dumps(parse_file(args[1]), indent=2))
+        print_code_map(parse_file(args[1]))
         return
 
     if args[0] == "--impact":
@@ -64,7 +74,7 @@ def main():
         source = file_path.read_text(encoding="utf-8")
         call_graph = build_call_graph(source)
 
-        print(json.dumps(compute_impact(call_graph, changed), indent=2))
+        print_impact(compute_impact(call_graph, changed))
         return
 
     if args[0] == "--review":
@@ -76,7 +86,7 @@ def main():
         issues = normalize_report(report)
         result = review(issues, use_llm="--llm" in args)
 
-        print(json.dumps(result, indent=2))
+        print_issues(result.get("comments", []))
         return
 
     if args[0] == "--generate-tests":
@@ -105,12 +115,26 @@ def main():
             saved = save_tests(result["test_code"], out_path)
             print(json.dumps({"source": result["source"], "saved_to": saved}, indent=2))
         else:
-            print(result["test_code"])
+            print_test_code(result["test_code"])
         return
 
     if args[0] == "--evaluate":
         bench_path = args[1] if len(args) > 1 else "data/benchmark.json"
-        print(json.dumps(run_benchmark(bench_path), indent=2))
+        print_benchmark(run_benchmark(bench_path))
+        return
+
+    if args[0] == "--pr":
+        if len(args) < 2:
+            print_usage()
+            sys.exit(1)
+
+        try:
+            result = review_pull_request(args[1])
+        except Exception as error:
+            print(json.dumps({"error": str(error)}, indent=2))
+            return
+
+        print_pr_report(result)
         return
 
     file_path = args[0]
@@ -120,9 +144,9 @@ def main():
 
     if unified:
         issues = normalize_report(report)
-        print(json.dumps(issues, indent=2))
+        print_issues(issues)
     else:
-        print(json.dumps(report, indent=2))
+        print_issues(normalize_report(report))
 
 
 if __name__ == "__main__":
