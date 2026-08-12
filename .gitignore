@@ -8,4 +8,6 @@ __pycache__/
 .idea/
 .pytest_cache/
 .mypy_cache/
-.DS_Store
+.DS_Storedist/
+build/
+*.egg-info/
