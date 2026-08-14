@@ -19,3 +19,7 @@ def divide(a, b):
 def delete_file(filename):
     # Intentional Command Injection vulnerability
     os.system("rm " + filename)
+
+
+def run_command(user_input):
+    os.system("echo " + user_input)
