@@ -20,13 +20,14 @@ from codegraph.printer import (
     print_test_code,
 )
 from codegraph.reviewer import review
+from codegraph.sarif import generate_sarif
 from codegraph.sandbox import run_tests_in_sandbox
 from codegraph.test_generator import generate_tests, save_tests
 
 
 def print_usage():
     print("Usage:")
-    print("  python -m codegraph.main <file.py> [--unified]")
+    print("  python -m codegraph.main <file.py> [--unified] [--sarif]")
     print("  python -m codegraph.main --diff [ref]")
     print("  python -m codegraph.main --map <file.py>")
     print("  python -m codegraph.main --impact <file.py> --changed fn1,fn2")
@@ -139,8 +140,19 @@ def main():
 
     file_path = args[0]
     unified = "--unified" in args
+    sarif = "--sarif" in args
 
     report = analyze_file(file_path)
+
+    if sarif:
+        issues = normalize_report(report)
+        sarif_output = generate_sarif(issues, file_path)
+
+        with open("results.sarif", "w", encoding="utf-8") as f:
+            json.dump(sarif_output, f, indent=2)
+
+        print(f"✅ SARIF report saved to results.sarif ({len(issues)} issues)")
+        return
 
     if unified:
         issues = normalize_report(report)
