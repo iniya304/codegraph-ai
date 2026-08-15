@@ -1,0 +1,8 @@
+- id: codegraph-ai
+  name: CodeGraph AI Security Scanner
+  description: Scans Python files for security vulnerabilities and bugs before committing.
+  entry: python -m codegraph.main
+  language: python
+  types: [python]
+  args: ["--unified"]
+  require_serial: true
