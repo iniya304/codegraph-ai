@@ -1,22 +1,20 @@
 # CodeGraph AI
 
-CodeGraph AI is a repository intelligence engine that analyzes code changes, detects bugs and security issues, explains impact, generates tests, and reviews code with optional LLM intelligence.
+CodeGraph AI is an enterprise-grade repository intelligence engine that analyzes code changes, detects vulnerabilities, and auto-generates tests. It uses a **hybrid review architecture** combining a deterministic rule engine with optional LLM enrichment.
 
-## Features
+## Architecture & DevSecOps Pipeline
 
-- Static analysis using pylint, bandit, and flake8
-- Unified issue normalization across tools
-- Git diff parsing for pull request analysis
-- AST-based code maps (functions, classes, imports)
-- Call graph and change impact analysis
-- LLM code review with rule-based fallback (provider-agnostic)
-- Automatic pytest generation with sandboxed execution
-- Benchmark evaluation with precision, recall, and F1 metrics
-- GitHub Action for automated PR review
+CodeGraph AI integrates natively into modern CI/CD workflows through shift-left security, containerization, and standard SARIF reporting.
 
-## Installation
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+```mermaid
+graph TD
+    A[Developer] -->|Writes Code| B(Git Pre-commit Hook)
+    B -->|Pass| C[Git Push]
+    B -->|Fails: Blocks Commit| A
+    C --> D{GitHub Actions CI/CD}
+    D -->|Runs Container| E[Dockerized CodeGraph CLI]
+    E --> F[Deterministic Rule Engine]
+    E --> G[Optional LLM Enrichment]
+    F --> H[Generate SARIF]
+    G --> H
+    H --> I[GitHub Security Tab]
