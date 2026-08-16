@@ -57,18 +57,18 @@ The system is organized as a pipeline of focused modules. Source code enters the
 
 ### 5.2 DevSecOps Flow Diagram
 
-```mermaid
-graph TD
-    A[Developer] -->|Writes Code| B(Git Pre-commit Hook)
-    B -->|Pass| C[Git Push]
-    B -->|Fails: Blocks Commit| A
-    C --> D{GitHub Actions CI/CD}
-    D -->|Runs Container| E[Dockerized CodeGraph CLI]
-    E --> F[Deterministic Rule Engine]
-    E --> G[Optional LLM Enrichment]
-    F --> H[Generate SARIF]
-    G --> H
-    H --> I[GitHub Security Tab]
+```text
+Developer -- writes code --> Git Pre-commit Hook
+Git Pre-commit Hook -- fail --> blocks commit
+Git Pre-commit Hook -- pass --> Git Push
+Git Push --> GitHub Actions CI/CD
+GitHub Actions CI/CD --> Dockerized CodeGraph CLI
+Dockerized CodeGraph CLI --> Deterministic Rule Engine
+Dockerized CodeGraph CLI --> Optional LLM Enrichment
+Deterministic Rule Engine --> Generate SARIF
+Optional LLM Enrichment --> Generate SARIF
+Generate SARIF --> GitHub Security Tab
+```
 
 ### 5.3 Repository Structure
 
@@ -99,40 +99,68 @@ codegraph-ai/
 └── .github/workflows/      # CI pipeline
 
 6.1 main.py — CLI Entry Point
+
 Parses command-line arguments and routes execution to the appropriate subsystem. Supports ten command modes: default file analysis, --unified, --diff, --map, --impact, --review, --generate-tests, --evaluate, --pr, and --sarif. It is registered as a console script (codegraph) in the package metadata, allowing installed users to invoke the tool directly.
+
 6.2 analyzer.py — Static Analysis Runner
+
 Executes pylint, bandit, and flake8 against a target file, each as an isolated subprocess, and captures their raw JSON or text output into a single report dictionary. Subprocess isolation ensures one tool's failure cannot crash the others, implementing the graceful-degradation principle at the lowest layer.
+
 6.3 normalizer.py — Unified Issue Schema
+
 Transforms each analyzer's proprietary output format into one consistent schema containing tool, severity, line, message, and confidence fields. This decouples analyzers from consumers: the reviewer, dashboard, printer, and SARIF emitter all read a single format, so adding a new analyzer requires only a new mapping function.
+
 6.4 ast_parser.py — Code Map
+
 Uses Python's native ast module to parse source into a structural map: every function (with argument signature and line number), every class (with its methods), and every import. Structural parsing, as opposed to regular expressions, ensures the tool reasons about code semantics rather than text patterns.
+
 6.5 graph.py — Call Graph and Impact Analysis
+
 Walks the AST to build a caller-to-callee graph of function invocations. Given a set of changed functions, compute_impact performs a reverse traversal — collecting every transitive caller while using a visited set to prevent cycles — producing changed and impacted lists. This "blast radius" tells a reviewer precisely which parts of the system are placed at risk by a single edit.
+
 6.6 diff_parser.py — Git Diff Understanding
+
 Executes git diff for a given ref and summarizes the result into changed files and added/removed line ranges, enabling change-scoped analysis in CI contexts.
+
 6.7 reviewer.py — Hybrid Review Engine
+
 Consumes the unified issue schema and assigns confidence scores, promoting high-severity security findings to blocking status while downgrading low-confidence style noise. When --llm is enabled and an API key is configured, findings are sent to a provider-agnostic chat-completions endpoint for natural-language enrichment. The deterministic verdict always remains the source of truth, and any LLM failure triggers silent fallback to the rule engine.
+
 6.8 test_generator.py — Test Generation
+
 Produces pytest source code for a target file, either via the LLM layer or via a rule-based generator that derives assertions from the code map (for example, verifying that functions exist and are callable). Generated code can be saved to disk or passed directly to the sandbox.
+
 6.9 sandbox.py — Sandboxed Execution
+
 Writes generated test code to a temporary directory and executes it through subprocess with a strict 30-second timeout. If the child process hangs — for instance, due to an AI-generated infinite loop — the operating system terminates it and the tool returns a clean failure state. The generated code is never imported into the running process, preserving isolation and containment.
+
 6.10 evaluation.py — Benchmarking
+
 Compares detected issue line numbers against a labeled benchmark dataset to compute true positives, false positives, and false negatives, and from them precision, recall, and F1, both per sample and in aggregate.
+
 6.11 pr_reviewer.py — GitHub PR Reviewer
+
 Parses a pull-request URL into owner, repository, and number via regular expression; fetches PR metadata and the changed-file list from the GitHub REST API; downloads each changed Python file at the head commit SHA from raw.githubusercontent.com; and runs the full analysis pipeline per file. Supports optional bearer-token authentication for private repositories. Non-Python and deleted files are skipped.
+
 6.12 sarif.py — SARIF Emitter
+
 Converts unified issues into SARIF v2.1.0 JSON, mapping severities to SARIF levels (high→error, medium→warning, others→note) and encoding physical locations (file URI and start line). This enables native rendering of findings in the GitHub Security tab via the standard upload-sarif action.
+
 6.13 printer.py — Rich Terminal UI
+
 Renders all output through the rich library: color-coded severity tables, bordered panels, syntax-highlighted generated code, and benchmark metric tables, giving the CLI a professional, enterprise-grade presentation.
 
 7. Key Technical Mechanisms
+
 Normalization. Three tools, three formats, one schema. The unified schema is the contract between analysis and presentation layers.
 Confidence Scoring. Findings are weighted by severity and source so that security-critical issues surface as blocking while stylistic noise is downgraded, preserving developer trust.
 Reverse Call-Graph Traversal. Impact analysis inverts the caller→callee graph and walks it transitively from changed functions, using a visited set to guarantee termination on cyclic graphs.
 Sandbox Guarantees. Isolation (subprocess, never import), timeout (30 seconds, OS-enforced), and containment (temporary directory, no credentials).
 Provider-Agnostic LLM Integration. The LLM layer reads base URL and model from environment variables, supporting OpenAI, Groq, OpenRouter, or any compatible endpoint. Absence of a key activates the deterministic core automatically.
 SARIF Integration. Standardized JSON output compatible with GitHub Advanced Security and the CodeQL upload action.
+
 8. Feature Catalog
+
 Unified Static Analysis — pylint, bandit, and flake8 merged into one schema.
 AST Code Maps — structural extraction of functions, classes, methods, imports.
 Impact Analysis — blast-radius computation for any changed function.
@@ -152,12 +180,14 @@ Rich Terminal UI — professional color-coded CLI presentation.
 A production-grade tool cannot rely on manual verification. CodeGraph AI ships with an automated testing suite comprising 40 distinct test cases, executed via `pytest`. 
 
 ### 9.1 Test Architecture
+
 The test suite is divided into unit tests, integration tests, and regression tests:
 *   **Unit Tests (`test_normalizer.py`, `test_ast_parser.py`):** Validate that the normalizer correctly maps tool-specific JSON/text into the unified schema, and that the AST parser accurately extracts function signatures and line numbers.
 *   **Integration Tests (`test_sandbox.py`, `test_pr_reviewer.py`):** Verify that the sandbox correctly kills infinite loops within the 30-second timeout window, and that the PR reviewer can successfully parse GitHub URLs and mock API responses.
 *   **Regression Tests:** Ensure that new features (like SARIF output) do not break existing deterministic CLI commands.
 
 ### 9.2 Sandbox Verification
+
 A specific test injects an intentionally infinite `while True:` loop into the sandbox module. The test asserts that the subprocess is killed by the OS before the test runner times out, proving the security boundary is enforced at the system level.
 
 ## 10. Evaluation and Benchmark Results
@@ -165,16 +195,19 @@ A specific test injects an intentionally infinite `while True:` loop into the sa
 Quality is measured using standard Information Retrieval (IR) metrics against a manually labeled dataset of known Python vulnerabilities (e.g., SQL injection, OS command injection, insecure deserialization).
 
 ### 10.1 Metric Definitions
+
 *   **True Positive (TP):** The tool flagged a line, and the benchmark confirms a vulnerability exists there.
 *   **False Positive (FP):** The tool flagged a line, but the benchmark shows it is safe (a false alarm).
 *   **False Negative (FN):** The benchmark shows a vulnerability exists, but the tool missed it.
 
 ### 10.2 Formulas
+
 *   **Precision** = $TP / (TP + FP)$. Measures trust. (Of the things the tool flagged, how many were actually bugs?)
 *   **Recall** = $TP / (TP + FN)$. Measures coverage. (Of all the real bugs in the codebase, how many did the tool find?)
 *   **F1 Score** = $2 \times \frac{Precision \times Recall}{Precision + Recall}$. The harmonic mean balancing both metrics.
 
 ### 10.3 Final Results
+
 Through iterative tuning of confidence thresholds and severity mappings, the deterministic engine achieved:
 *   **Precision:** 100% (1.0)
 *   **Recall:** 100% (1.0)
@@ -187,12 +220,15 @@ This indicates a zero false-positive, zero false-negative detection rate on the 
 To transition from a script to an enterprise product, CodeGraph AI implements three core DevSecOps integration points.
 
 ### 11.1 Shift-Left Security (Pre-commit Hooks)
+
 The repository includes a `.pre-commit-hooks.yaml` manifest. By adding CodeGraph AI to a team's `.pre-commit-config.yaml`, the tool executes locally on a developer's machine *before* a git commit is finalized. If high-severity vulnerabilities are detected, the commit is blocked, enforcing security at the earliest possible stage (Shift-Left).
 
 ### 11.2 Containerization (Docker)
+
 To ensure deterministic execution across diverse CI environments (GitHub Actions, GitLab CI, Jenkins), the tool is containerized. The `Dockerfile` uses a multi-stage build based on `python:3.11-slim`. It installs system dependencies (like `git` for diff parsing), compiles the Python requirements, and sets the `ENTRYPOINT` to the CLI. This guarantees that the tool runs identically everywhere without polluting the host runner's environment.
 
 ### 11.3 GitHub Advanced Security (SARIF)
+
 The `--sarif` flag generates a report compliant with the **Static Analysis Results Interchange Format (SARIF) v2.1.0**. When this file is uploaded via the `github/codeql-action/upload-sarif` GitHub Action, the findings are rendered natively in the repository's "Security" tab, allowing security teams to triage vulnerabilities without reading CI logs.
 
 ## 12. Distribution and Release Lifecycle
@@ -200,9 +236,11 @@ The `--sarif` flag generates a report compliant with the **Static Analysis Resul
 CodeGraph AI is distributed as a standard Python package via the Python Package Index (PyPI). 
 
 ### 12.1 Packaging Metadata
+
 The project uses modern PEP 621 packaging via `pyproject.toml`. This file defines the package name, version, dependencies, Python version requirements (`>=3.9`), and console script entry points (`codegraph = "codegraph.main:main"`).
 
 ### 12.2 Release History (Semantic Versioning)
+
 The project follows Semantic Versioning (MAJOR.MINOR.PATCH):
 *   **v1.0.0:** Initial release. Core deterministic engine, AST parsing, impact analysis, benchmark suite, and PyPI publication.
 *   **v1.1.0:** UI overhaul. Introduced the Rich terminal UI (color-coded tables, panels) and the interactive Streamlit web dashboard.
@@ -210,6 +248,7 @@ The project follows Semantic Versioning (MAJOR.MINOR.PATCH):
 *   **v1.3.0:** Enterprise release. Added SARIF output, Docker containerization, and pre-commit hook configurations.
 
 ### 12.3 Build and Upload Pipeline
+
 Releases are built using the `build` module (generating `.whl` and `.tar.gz` artifacts in the `dist/` directory) and uploaded using `twine` to the PyPI registry, authenticated via scoped API tokens.
 
 ## 13. Engineering Challenges and Solutions
@@ -217,14 +256,17 @@ Releases are built using the `build` module (generating `.whl` and `.tar.gz` art
 Building a distributed, multi-modal system presented several real-world engineering challenges.
 
 ### 13.1 GitHub API Rate Limiting (HTTP 403)
+
 *   **Problem:** Unauthenticated requests to the GitHub REST API are strictly limited to 60 requests per hour. During PR analysis, the tool rapidly exhausted this quota, causing pipeline failures.
 *   **Solution:** Implemented optional Bearer Token authentication. By injecting a Personal Access Token (PAT) via the `GITHUB_TOKEN` environment variable, the rate limit increases to 5,000 requests per hour.
 
 ### 13.2 Private Repository Access (HTTP 404)
+
 *   **Problem:** The PR reviewer failed with `404 Not Found` when analyzing pull requests in private repositories. GitHub masks private resources from unauthenticated API calls for security.
 *   **Solution:** Modified the request headers to dynamically include `Authorization: Bearer <token>` if the environment variable is present, allowing the tool to access private codebases securely.
 
 ### 13.3 Untrusted Code Execution Risks
+
 *   **Problem:** Allowing an LLM to generate pytest files introduces the risk of the AI generating malicious code (e.g., `os.remove('/')`) or infinite loops.
 *   **Solution:** Designed the `sandbox.py` module. Generated code is written to an isolated temporary directory and executed via `subprocess.Popen`. A strict 30-second timeout is enforced; if exceeded, the OS sends a `SIGKILL` to the child process, guaranteeing the host machine is never compromised or locked up.
 
