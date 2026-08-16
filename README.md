@@ -348,4 +348,4 @@ MIT License. See `pyproject.toml` for details.
 
 ## 👤 Author
 
-Built by **[Your Name](https://github.com/iniya304)** — replace with your real name before publishing!
+Built by **[Iniya M](https://github.com/iniya304)**
