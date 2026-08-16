@@ -72,6 +72,7 @@ Generate SARIF --> GitHub Security Tab
 
 ### 5.3 Repository Structure
 
+```text
 codegraph-ai/
 ├── codegraph/
 │   ├── __init__.py
@@ -97,6 +98,7 @@ codegraph-ai/
 ├── pyproject.toml          # PyPI packaging metadata
 ├── TECHNICAL_REPORT.md     # this document
 └── .github/workflows/      # CI pipeline
+```
 
 6.1 main.py — CLI Entry Point
 
